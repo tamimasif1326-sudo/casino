@@ -35,7 +35,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_TELEGRAM_BOT_TOKEN_HERE")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8753733218:AAHzyJXAZ-MH-z4Hrl1ETiuYjsdSzWb-E20")
 ADMIN_IDS = {int(x) for x in os.getenv("ADMIN_IDS", os.getenv("OWNER_ID", "7467057651")).split(",") if x.strip().isdigit()}
 
 USERS_FILE = "miniapp_users.json"
