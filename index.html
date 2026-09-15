@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Points Games</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: var(--tg-theme-bg-color, #0e0f1a);
+    --card: #171a2b;
+    --text: var(--tg-theme-text-color, #ffffff);
+    --hint: var(--tg-theme-hint-color, #8b8fa3);
+    --accent: var(--tg-theme-button-color, #6c5ce7);
+    --accent-text: var(--tg-theme-button-text-color, #ffffff);
+    --green: #2ecc71;
+    --red: #e74c3c;
+    --amber: #f1c40f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); padding-bottom: 90px;
+  }
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; background: var(--card); position: sticky; top: 0; z-index: 10;
+  }
+  .balance { font-weight: 700; font-size: 16px; }
+  .balance span { color: var(--amber); }
+  .tabs {
+    display: flex; gap: 8px; padding: 10px 16px;
+  }
+  .tab {
+    flex: 1; text-align: center; padding: 10px; border-radius: 10px;
+    background: var(--card); color: var(--hint); font-weight: 600; cursor: pointer;
+  }
+  .tab.active { background: var(--accent); color: var(--accent-text); }
+  .screen { display: none; padding: 0 16px; }
+  .screen.active { display: block; }
+
+  /* ---- Crash game ---- */
+  .crash-box {
+    background: linear-gradient(180deg, #1b2140, #0e0f1a);
+    border-radius: 16px; height: 220px; position: relative; overflow: hidden; margin-top: 8px;
+  }
+  .crash-box .grid-line {
+    position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.06);
+  }
+  .plane {
+    position: absolute; font-size: 28px; left: 8%; bottom: 8%;
+    transition: left 0.4s linear, bottom 0.4s linear, transform 0.3s;
+    filter: drop-shadow(0 0 6px rgba(255,255,255,0.4));
+  }
+  .plane.crashed { font-size: 34px; }
+  .multiplier-text {
+    position: absolute; top: 14px; left: 0; right: 0; text-align: center;
+    font-size: 40px; font-weight: 800; letter-spacing: 1px;
+  }
+  .multiplier-text.flying { color: var(--green); }
+  .multiplier-text.crashed { color: var(--red); }
+  .multiplier-text.joining { color: var(--hint); font-size: 20px; }
+  .status-line { text-align: center; color: var(--hint); font-size: 13px; margin-top: 4px; }
+
+  .amounts { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .amt-btn {
+    flex: 1; min-width: 70px; padding: 12px 0; text-align: center; border-radius: 10px;
+    background: var(--card); font-weight: 700; cursor: pointer; border: 1px solid rgba(255,255,255,0.08);
+  }
+  .amt-btn.selected { background: var(--accent); color: var(--accent-text); }
+  .primary-btn {
+    width: 100%; padding: 14px; margin-top: 12px; border-radius: 12px; border: none;
+    background: var(--accent); color: var(--accent-text); font-weight: 800; font-size: 16px; cursor: pointer;
+  }
+  .primary-btn:disabled { opacity: 0.4; }
+  .cashout-btn { background: var(--green); }
+  .players-list { margin-top: 14px; }
+  .player-row {
+    display: flex; justify-content: space-between; padding: 8px 12px; border-radius: 10px;
+    background: var(--card); margin-bottom: 6px; font-size: 14px;
+  }
+  .player-row.won { border-left: 3px solid var(--green); }
+  .player-row.lost { border-left: 3px solid var(--red); }
+  .player-row.flying { border-left: 3px solid var(--amber); }
+
+  /* ---- Trading game ---- */
+  .price-box { text-align: center; margin: 10px 0; }
+  .price-value { font-size: 32px; font-weight: 800; }
+  .price-value.up { color: var(--green); }
+  .price-value.down { color: var(--red); }
+  canvas#chart { width: 100%; height: 160px; background: var(--card); border-radius: 14px; }
+  .updown-row { display: flex; gap: 10px; margin-top: 14px; }
+  .updown-btn {
+    flex: 1; padding: 16px 0; text-align: center; border-radius: 12px; font-weight: 800; font-size: 16px; cursor: pointer;
+  }
+  .up-btn { background: rgba(46,204,113,0.15); color: var(--green); border: 1px solid var(--green); }
+  .down-btn { background: rgba(231,76,60,0.15); color: var(--red); border: 1px solid var(--red); }
+  .updown-btn.selected.up-btn { background: var(--green); color: #06210f; }
+  .updown-btn.selected.down-btn { background: var(--red); color: #2a0705; }
+
+  .toast {
+    position: fixed; bottom: 16px; left: 16px; right: 16px; background: var(--card);
+    padding: 12px 16px; border-radius: 12px; text-align: center; font-weight: 600;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .lb-row { display: flex; justify-content: space-between; padding: 10px 12px; background: var(--card); border-radius: 10px; margin-bottom: 6px; }
+
+  .input-label { display: block; margin-top: 12px; margin-bottom: 4px; font-size: 13px; color: var(--hint); }
+  .text-input {
+    width: 100%; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12);
+    background: var(--card); color: var(--text); font-size: 15px;
+  }
+  #screen-admin h3 { margin-top: 22px; margin-bottom: 4px; }
+  #screen-admin h3:first-child { margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="balance">💰 <span id="balance">--</span> pts</div>
+  <div id="username" style="color: var(--hint); font-size: 13px;"></div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="crash">🎮 Crash</div>
+  <div class="tab" data-tab="trading">📈 Trading</div>
+  <div class="tab" data-tab="leaderboard">🏆 Top</div>
+  <div class="tab" data-tab="admin" id="adminTab" style="display:none;">⚙️ Admin</div>
+</div>
+
+<!-- CRASH SCREEN -->
+<div class="screen active" id="screen-crash">
+  <div class="crash-box" id="crashBox">
+    <div class="multiplier-text joining" id="crashMultText">Waiting for round...</div>
+    <div class="plane" id="plane">✈️</div>
+  </div>
+  <div class="status-line" id="crashStatusLine"></div>
+
+  <div id="joinPanel">
+    <label class="input-label">Bet amount (points)</label>
+    <input type="number" id="crashAmountInput" class="text-input" placeholder="e.g. 200" min="1">
+    <label class="input-label">Auto cash out at (optional, e.g. 2.5)</label>
+    <input type="number" id="crashAutoInput" class="text-input" placeholder="Leave empty to cash out manually" min="1.01" step="0.01">
+    <button class="primary-btn" id="joinBtn">Join Round</button>
+  </div>
+
+  <button class="primary-btn cashout-btn" id="cashoutBtn" style="display:none;">💸 CASH OUT</button>
+
+  <div class="players-list" id="crashPlayers"></div>
+</div>
+
+<!-- TRADING SCREEN -->
+<div class="screen" id="screen-trading">
+  <div class="price-box">
+    <div class="price-value" id="tradingPrice">--</div>
+    <div class="status-line" id="tradingStatusLine"></div>
+  </div>
+  <canvas id="chart" width="600" height="320"></canvas>
+  <label class="input-label">Bet amount (points)</label>
+  <input type="number" id="tradingAmountInput" class="text-input" placeholder="e.g. 100" min="1">
+  <div class="updown-row">
+    <div class="updown-btn up-btn" id="upBtn">📈 UP</div>
+    <div class="updown-btn down-btn" id="downBtn">📉 DOWN</div>
+  </div>
+  <div class="status-line" id="tradingResultLine"></div>
+</div>
+
+<!-- LEADERBOARD SCREEN -->
+<div class="screen" id="screen-leaderboard">
+  <div id="lbList" style="margin-top:12px;"></div>
+</div>
+
+<!-- ADMIN SCREEN -->
+<div class="screen" id="screen-admin">
+  <h3>🎮 Crash Settings</h3>
+  <label class="input-label">Join window (seconds)</label>
+  <input type="number" class="text-input" id="admJoinWindow">
+  <label class="input-label">Tick interval (seconds)</label>
+  <input type="number" step="0.1" class="text-input" id="admCrashTick">
+  <label class="input-label">Min crash cap (x)</label>
+  <input type="number" step="0.01" class="text-input" id="admMinCap">
+  <label class="input-label">Max crash cap (x)</label>
+  <input type="number" step="1" class="text-input" id="admMaxCap">
+  <label class="input-label">Growth rate (higher = climbs faster)</label>
+  <input type="number" step="0.01" class="text-input" id="admGrowth">
+  <button class="primary-btn" id="admSaveCrash">Save Crash Settings</button>
+
+  <h3>📈 Trading Settings</h3>
+  <label class="input-label">Round length (seconds)</label>
+  <input type="number" class="text-input" id="admRoundSeconds">
+  <label class="input-label">Tick interval (seconds)</label>
+  <input type="number" step="0.1" class="text-input" id="admTradingTick">
+  <label class="input-label">Volatility (% per tick)</label>
+  <input type="number" step="0.1" class="text-input" id="admVolatility">
+  <label class="input-label">Trend bias (small drift, -2..2, 0 = fair)</label>
+  <input type="number" step="0.1" class="text-input" id="admBias">
+  <label class="input-label">Win payout multiplier</label>
+  <input type="number" step="0.1" class="text-input" id="admPayout">
+  <button class="primary-btn" id="admSaveTrading">Save Trading Settings</button>
+
+  <h3>👥 Adjust User Points</h3>
+  <label class="input-label">Target user ID</label>
+  <input type="text" class="text-input" id="admTargetUid" placeholder="Telegram user ID">
+  <label class="input-label">Amount (negative to deduct)</label>
+  <input type="number" class="text-input" id="admDelta" placeholder="e.g. 500 or -200">
+  <button class="primary-btn" id="admApplyPoints">Apply</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const tg = window.Telegram ? window.Telegram.WebApp : null;
+if (tg) { tg.ready(); tg.expand(); }
+
+// Fallback for testing outside Telegram (open this file directly in a browser):
+// pretend to be user "999:Tester" so the API's dev fallback accepts it.
+const initData = (tg && tg.initData) ? tg.initData : "999:Tester";
+if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+  document.getElementById("username").textContent = tg.initDataUnsafe.user.first_name || "";
+}
+
+let myUid = null;
+let myBalance = 0;
+let isAdmin = false;
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+// ---- tabs ----
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById("screen-" + tab.dataset.tab).classList.add("active");
+    if (tab.dataset.tab === "leaderboard") loadLeaderboard();
+    if (tab.dataset.tab === "admin") loadAdminSettings();
+  };
+});
+
+// ---- API helpers ----
+async function apiGet(path) {
+  const r = await fetch(path);
+  return r.json();
+}
+async function apiPost(path, body) {
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.detail || "Request failed");
+  return data;
+}
+
+async function refreshMe() {
+  try {
+    const me = await apiGet("/api/me?initData=" + encodeURIComponent(initData));
+    myUid = String(me.uid);
+    myBalance = me.points;
+    isAdmin = !!me.is_admin;
+    document.getElementById("balance").textContent = me.points.toFixed(0);
+    document.getElementById("adminTab").style.display = isAdmin ? "block" : "none";
+  } catch (e) { /* ignore */ }
+}
+
+// ==================== CRASH ====================
+
+function planePosition(mult, phase) {
+  // maps multiplier (1x..~50x visually capped) to an x/y position along a curve
+  const capped = Math.min(mult, 50);
+  const t = Math.log(capped) / Math.log(50); // 0..1
+  const left = 8 + t * 78;
+  const bottom = 8 + t * 68;
+  return { left, bottom };
+}
+
+async function pollCrash() {
+  try {
+    const s = await apiGet("/api/crash");
+    const box = document.getElementById("crashBox");
+    const multEl = document.getElementById("crashMultText");
+    const plane = document.getElementById("plane");
+    const statusLine = document.getElementById("crashStatusLine");
+    const joinPanel = document.getElementById("joinPanel");
+    const cashoutBtn = document.getElementById("cashoutBtn");
+
+    const me = s.players.find(p => p.uid === myUid);
+
+    if (s.phase === "joining") {
+      multEl.className = "multiplier-text joining";
+      multEl.textContent = "Joins close in " + Math.ceil(s.join_seconds_left || 0) + "s";
+      statusLine.textContent = s.players.length + " player(s) joined";
+      plane.style.left = "8%"; plane.style.bottom = "8%"; plane.classList.remove("crashed");
+      joinPanel.style.display = me ? "none" : "block";
+      cashoutBtn.style.display = "none";
+      if (me) statusLine.textContent += " · You joined with " + me.bet + " pts";
+      hasJoinedCrash = !!me; hasCashedOut = false;
+    } else if (s.phase === "flying") {
+      multEl.className = "multiplier-text flying";
+      multEl.textContent = s.multiplier.toFixed(2) + "x";
+      statusLine.textContent = "✈️ Flying...";
+      const pos = planePosition(s.multiplier, "flying");
+      plane.style.left = pos.left + "%"; plane.style.bottom = pos.bottom + "%";
+      plane.classList.remove("crashed");
+      joinPanel.style.display = "none";
+      if (me && !me.cashed_out) {
+        cashoutBtn.style.display = "block";
+        cashoutBtn.disabled = false;
+        cashoutBtn.textContent = "💸 CASH OUT (" + (me.bet * s.multiplier).toFixed(0) + " pts)";
+      } else {
+        cashoutBtn.style.display = "none";
+      }
+    } else if (s.phase === "crashed") {
+      multEl.className = "multiplier-text crashed";
+      multEl.textContent = "💥 " + (s.crash_point || s.multiplier).toFixed(2) + "x";
+      statusLine.textContent = "Crashed! New round starting soon...";
+      plane.classList.add("crashed"); plane.textContent = "💥";
+      setTimeout(() => { plane.textContent = "✈️"; }, 1500);
+      joinPanel.style.display = "none";
+      cashoutBtn.style.display = "none";
+      if (me) refreshMe();
+    }
+
+    const playersEl = document.getElementById("crashPlayers");
+    playersEl.innerHTML = "";
+    s.players.forEach(p => {
+      const row = document.createElement("div");
+      let cls = "player-row";
+      let text = p.name + " — " + p.bet + " pts";
+      if (p.auto_cashout && !p.cashed_out) text += " (auto @ " + p.auto_cashout + "x)";
+      if (s.phase === "crashed") {
+        if (p.cashed_out) { cls += " won"; text += " ✅ " + p.cashout_multiplier.toFixed(2) + "x"; }
+        else { cls += " lost"; text += " ❌ lost"; }
+      } else if (p.cashed_out) {
+        cls += " won"; text += " ✅ cashed " + p.cashout_multiplier.toFixed(2) + "x";
+      } else if (s.phase === "flying") {
+        cls += " flying"; text += " ⏳ flying";
+      }
+      row.className = cls;
+      row.innerHTML = "<span>" + text + "</span>";
+      playersEl.appendChild(row);
+    });
+  } catch (e) { console.error(e); }
+}
+
+document.getElementById("joinBtn").onclick = async () => {
+  const amount = parseFloat(document.getElementById("crashAmountInput").value);
+  const autoRaw = document.getElementById("crashAutoInput").value;
+  const auto_cashout = autoRaw ? parseFloat(autoRaw) : null;
+  if (!amount || amount <= 0) { showToast("⚠️ Enter a valid amount."); return; }
+  if (auto_cashout !== null && auto_cashout < 1.01) { showToast("⚠️ Auto cash out must be at least 1.01x."); return; }
+  try {
+    const res = await apiPost("/api/crash/join", { initData, amount, auto_cashout });
+    myBalance = res.balance;
+    document.getElementById("balance").textContent = res.balance.toFixed(0);
+    showToast("✅ Joined with " + amount + " points" + (auto_cashout ? " (auto @ " + auto_cashout + "x)" : "") + "!");
+  } catch (e) { showToast("⚠️ " + e.message); }
+};
+
+document.getElementById("cashoutBtn").onclick = async () => {
+  try {
+    const res = await apiPost("/api/crash/cashout", { initData });
+    myBalance = res.balance;
+    document.getElementById("balance").textContent = res.balance.toFixed(0);
+    showToast("💸 Cashed out at " + res.multiplier.toFixed(2) + "x — +" + res.winnings.toFixed(0) + " pts!");
+  } catch (e) { showToast("⚠️ " + e.message); }
+};
+
+// ==================== TRADING ====================
+
+function drawChart(history, startPrice) {
+  const canvas = document.getElementById("chart");
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  if (history.length < 2) return;
+
+  const min = Math.min(...history), max = Math.max(...history);
+  const pad = (max - min) * 0.1 || 1;
+  const lo = min - pad, hi = max + pad;
+  const stepX = w / (history.length - 1);
+
+  ctx.beginPath();
+  history.forEach((p, i) => {
+    const x = i * stepX;
+    const y = h - ((p - lo) / (hi - lo)) * h;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  const last = history[history.length - 1];
+  ctx.strokeStyle = last >= startPrice ? "#2ecc71" : "#e74c3c";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // start-price reference line
+  const startY = h - ((startPrice - lo) / (hi - lo)) * h;
+  ctx.beginPath();
+  ctx.setLineDash([4, 4]);
+  ctx.moveTo(0, startY); ctx.lineTo(w, startY);
+  ctx.strokeStyle = "rgba(255,255,255,0.3)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+async function pollTrading() {
+  try {
+    const s = await apiGet("/api/trading");
+    const priceEl = document.getElementById("tradingPrice");
+    const statusLine = document.getElementById("tradingStatusLine");
+    const resultLine = document.getElementById("tradingResultLine");
+
+    priceEl.textContent = s.price.toFixed(2);
+    priceEl.className = "price-value " + (s.price >= s.start_price ? "up" : "down");
+    statusLine.textContent = "Betting closes in " + Math.ceil(s.seconds_left) + "s · " + s.bets.length + " bet(s)";
+    drawChart(s.history, s.start_price);
+
+    const mine = s.bets.find(b => b.uid === myUid);
+    const upBtn = document.getElementById("upBtn"), downBtn = document.getElementById("downBtn");
+    upBtn.classList.remove("selected"); downBtn.classList.remove("selected");
+    if (mine) {
+      (mine.side === "up" ? upBtn : downBtn).classList.add("selected");
+      upBtn.style.pointerEvents = "none"; downBtn.style.pointerEvents = "none";
+    } else {
+      upBtn.style.pointerEvents = "auto"; downBtn.style.pointerEvents = "auto";
+    }
+
+    if (s.last_result) {
+      const r = s.last_result;
+      const mineResult = r.results.find(x => x.uid === myUid);
+      let line = "Last: " + r.start.toFixed(2) + " → " + r.end.toFixed(2) + " (" + r.direction.toUpperCase() + ")";
+      if (mineResult) line += mineResult.won ? " · You won " + mineResult.payout.toFixed(0) + " pts!" : " · You lost this round";
+      resultLine.textContent = line;
+      if (mineResult) refreshMe();
+    } else {
+      resultLine.textContent = "";
+    }
+  } catch (e) { console.error(e); }
+}
+
+async function placeTradingBet(side) {
+  const amount = parseFloat(document.getElementById("tradingAmountInput").value);
+  if (!amount || amount <= 0) { showToast("⚠️ Enter a valid amount."); return; }
+  try {
+    const res = await apiPost("/api/trading/bet", { initData, side, amount });
+    myBalance = res.balance;
+    document.getElementById("balance").textContent = res.balance.toFixed(0);
+    showToast("✅ Bet placed: " + amount + " pts on " + side.toUpperCase());
+  } catch (e) { showToast("⚠️ " + e.message); }
+}
+document.getElementById("upBtn").onclick = () => placeTradingBet("up");
+document.getElementById("downBtn").onclick = () => placeTradingBet("down");
+
+// ==================== LEADERBOARD ====================
+
+async function loadLeaderboard() {
+  const rows = await apiGet("/api/leaderboard");
+  const el = document.getElementById("lbList");
+  el.innerHTML = "";
+  const medals = ["🥇", "🥈", "🥉"];
+  rows.forEach((r, i) => {
+    const row = document.createElement("div");
+    row.className = "lb-row";
+    row.innerHTML = "<span>" + (medals[i] || (i + 1) + ".") + " " + r.name + "</span><span>" + r.points.toFixed(0) + " pts</span>";
+    el.appendChild(row);
+  });
+  if (!rows.length) el.innerHTML = "<div class='status-line'>No players yet.</div>";
+}
+
+// ==================== ADMIN ====================
+
+async function loadAdminSettings() {
+  try {
+    const s = await apiGet("/api/admin/settings?initData=" + encodeURIComponent(initData));
+    document.getElementById("admJoinWindow").value = s.crash.join_window_seconds;
+    document.getElementById("admCrashTick").value = s.crash.tick_interval;
+    document.getElementById("admMinCap").value = s.crash.min_crash_cap;
+    document.getElementById("admMaxCap").value = s.crash.max_crash_cap;
+    document.getElementById("admGrowth").value = s.crash.growth_rate;
+    document.getElementById("admRoundSeconds").value = s.trading.round_seconds;
+    document.getElementById("admTradingTick").value = s.trading.tick_interval;
+    document.getElementById("admVolatility").value = s.trading.volatility_pct;
+    document.getElementById("admBias").value = s.trading.trend_bias_pct;
+    document.getElementById("admPayout").value = s.trading.win_payout_multiplier;
+  } catch (e) { showToast("⚠️ " + e.message); }
+}
+
+async function saveAdminSetting(path, value) {
+  await apiPost("/api/admin/settings", { initData, path, value });
+}
+
+document.getElementById("admSaveCrash").onclick = async () => {
+  try {
+    await saveAdminSetting(["crash", "join_window_seconds"], parseFloat(document.getElementById("admJoinWindow").value));
+    await saveAdminSetting(["crash", "tick_interval"], parseFloat(document.getElementById("admCrashTick").value));
+    await saveAdminSetting(["crash", "min_crash_cap"], parseFloat(document.getElementById("admMinCap").value));
+    await saveAdminSetting(["crash", "max_crash_cap"], parseFloat(document.getElementById("admMaxCap").value));
+    await saveAdminSetting(["crash", "growth_rate"], parseFloat(document.getElementById("admGrowth").value));
+    showToast("✅ Crash settings saved!");
+  } catch (e) { showToast("⚠️ " + e.message); }
+};
+
+document.getElementById("admSaveTrading").onclick = async () => {
+  try {
+    await saveAdminSetting(["trading", "round_seconds"], parseFloat(document.getElementById("admRoundSeconds").value));
+    await saveAdminSetting(["trading", "tick_interval"], parseFloat(document.getElementById("admTradingTick").value));
+    await saveAdminSetting(["trading", "volatility_pct"], parseFloat(document.getElementById("admVolatility").value));
+    await saveAdminSetting(["trading", "trend_bias_pct"], parseFloat(document.getElementById("admBias").value));
+    await saveAdminSetting(["trading", "win_payout_multiplier"], parseFloat(document.getElementById("admPayout").value));
+    showToast("✅ Trading settings saved!");
+  } catch (e) { showToast("⚠️ " + e.message); }
+};
+
+document.getElementById("admApplyPoints").onclick = async () => {
+  const target_uid = document.getElementById("admTargetUid").value.trim();
+  const delta = parseFloat(document.getElementById("admDelta").value);
+  if (!target_uid || isNaN(delta)) { showToast("⚠️ Enter a user ID and amount."); return; }
+  try {
+    const res = await apiPost("/api/admin/points", { initData, target_uid, delta });
+    showToast("✅ New balance for " + target_uid + ": " + res.balance.toFixed(0));
+  } catch (e) { showToast("⚠️ " + e.message); }
+};
+
+// ==================== INIT ====================
+
+refreshMe();
+setInterval(pollCrash, 500);
+setInterval(pollTrading, 1000);
+pollCrash();
+pollTrading();
+</script>
+</body>
+</html>
