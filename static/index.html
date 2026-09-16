@@ -3,533 +3,543 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Points Games</title>
+<title>Points Arcade</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-  :root {
-    --bg: var(--tg-theme-bg-color, #0e0f1a);
-    --card: #171a2b;
-    --text: var(--tg-theme-text-color, #ffffff);
-    --hint: var(--tg-theme-hint-color, #8b8fa3);
-    --accent: var(--tg-theme-button-color, #6c5ce7);
-    --accent-text: var(--tg-theme-button-text-color, #ffffff);
-    --green: #2ecc71;
-    --red: #e74c3c;
-    --amber: #f1c40f;
+  :root{
+    --bg:#0e1016; --card:#161a24; --card2:#1d2230; --line:#262c3a;
+    --green:#22c55e; --red:#ef4444; --blue:#3b82f6; --gold:#f5b83d;
+    --text:#eef1f7; --muted:#8b93a7;
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg); color: var(--text); padding-bottom: 90px;
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    padding-bottom:78px;
   }
-  .topbar {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 16px; background: var(--card); position: sticky; top: 0; z-index: 10;
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 14px; background:var(--card); border-bottom:1px solid var(--line);
+    position:sticky; top:0; z-index:20;
   }
-  .balance { font-weight: 700; font-size: 16px; }
-  .balance span { color: var(--amber); }
-  .tabs {
-    display: flex; gap: 8px; padding: 10px 16px;
+  .brand{font-weight:800; font-size:19px; letter-spacing:.5px;}
+  .brand span{color:var(--gold);}
+  .balance{
+    display:flex; align-items:center; gap:6px; background:var(--card2);
+    padding:7px 12px; border-radius:20px; font-weight:700; font-size:14px;
+    border:1px solid var(--line);
   }
-  .tab {
-    flex: 1; text-align: center; padding: 10px; border-radius: 10px;
-    background: var(--card); color: var(--hint); font-weight: 600; cursor: pointer;
+  .balance .coin{color:var(--gold);}
+  main{padding:14px; max-width:520px; margin:0 auto;}
+  .tabs{display:flex; gap:8px; margin-bottom:14px;}
+  .tab{
+    flex:1; text-align:center; padding:10px; border-radius:10px; font-weight:700;
+    background:var(--card); color:var(--muted); border:1px solid var(--line); cursor:pointer;
   }
-  .tab.active { background: var(--accent); color: var(--accent-text); }
-  .screen { display: none; padding: 0 16px; }
-  .screen.active { display: block; }
-
-  /* ---- Crash game ---- */
-  .crash-box {
-    background: linear-gradient(180deg, #1b2140, #0e0f1a);
-    border-radius: 16px; height: 220px; position: relative; overflow: hidden; margin-top: 8px;
+  .tab.active{background:var(--blue); color:#fff; border-color:var(--blue);}
+  .view{display:none;}
+  .view.active{display:block;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:16px; margin-bottom:14px;
   }
-  .crash-box .grid-line {
-    position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.06);
+  /* ---- Crash ---- */
+  .crash-history{display:flex; gap:6px; overflow-x:auto; margin-bottom:12px; padding-bottom:2px;}
+  .crash-history span{
+    flex:0 0 auto; font-size:12px; font-weight:700; padding:4px 8px; border-radius:8px;
+    background:var(--card2);
   }
-  .plane {
-    position: absolute; font-size: 28px; left: 8%; bottom: 8%;
-    transition: left 0.4s linear, bottom 0.4s linear, transform 0.3s;
-    filter: drop-shadow(0 0 6px rgba(255,255,255,0.4));
+  .crash-history span.low{color:var(--muted);}
+  .crash-history span.mid{color:var(--gold);}
+  .crash-history span.high{color:var(--green);}
+  .crash-display{
+    height:220px; border-radius:12px; background:radial-gradient(circle at 50% 100%, #1c2740, #0e1016 75%);
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    position:relative; overflow:hidden; margin-bottom:14px; border:1px solid var(--line);
   }
-  .plane.crashed { font-size: 34px; }
-  .multiplier-text {
-    position: absolute; top: 14px; left: 0; right: 0; text-align: center;
-    font-size: 40px; font-weight: 800; letter-spacing: 1px;
+  .crash-mult{font-size:46px; font-weight:800; transition:color .2s;}
+  .crash-mult.flying{color:var(--green);}
+  .crash-mult.crashed{color:var(--red);}
+  .crash-sub{font-size:13px; color:var(--muted); margin-top:6px; font-weight:600;}
+  .crash-plane{position:absolute; font-size:28px; transition:transform .3s ease-out;}
+  .players-list{max-height:160px; overflow-y:auto; margin-top:10px;}
+  .player-row{
+    display:flex; justify-content:space-between; font-size:13px; padding:6px 0;
+    border-bottom:1px solid var(--line);
   }
-  .multiplier-text.flying { color: var(--green); }
-  .multiplier-text.crashed { color: var(--red); }
-  .multiplier-text.joining { color: var(--hint); font-size: 20px; }
-  .status-line { text-align: center; color: var(--hint); font-size: 13px; margin-top: 4px; }
-
-  .amounts { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
-  .amt-btn {
-    flex: 1; min-width: 70px; padding: 12px 0; text-align: center; border-radius: 10px;
-    background: var(--card); font-weight: 700; cursor: pointer; border: 1px solid rgba(255,255,255,0.08);
+  .player-row .won{color:var(--green); font-weight:700;}
+  .player-row .waiting{color:var(--muted);}
+  .amount-row{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+  .amount-row button{
+    width:38px; height:38px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--text); font-size:18px; font-weight:700;
   }
-  .amt-btn.selected { background: var(--accent); color: var(--accent-text); }
-  .primary-btn {
-    width: 100%; padding: 14px; margin-top: 12px; border-radius: 12px; border: none;
-    background: var(--accent); color: var(--accent-text); font-weight: 800; font-size: 16px; cursor: pointer;
+  .amount-row input{
+    flex:1; text-align:center; font-size:18px; font-weight:700; background:var(--card2);
+    border:1px solid var(--line); color:var(--text); border-radius:10px; padding:9px; width:0;
   }
-  .primary-btn:disabled { opacity: 0.4; }
-  .cashout-btn { background: var(--green); }
-  .players-list { margin-top: 14px; }
-  .player-row {
-    display: flex; justify-content: space-between; padding: 8px 12px; border-radius: 10px;
-    background: var(--card); margin-bottom: 6px; font-size: 14px;
+  .quick-amounts{display:flex; gap:8px; margin-bottom:12px;}
+  .quick-amounts button{
+    flex:1; padding:8px; border-radius:8px; border:1px solid var(--line);
+    background:var(--card2); color:var(--muted); font-weight:700; font-size:13px;
   }
-  .player-row.won { border-left: 3px solid var(--green); }
-  .player-row.lost { border-left: 3px solid var(--red); }
-  .player-row.flying { border-left: 3px solid var(--amber); }
-
-  /* ---- Trading game ---- */
-  .price-box { text-align: center; margin: 10px 0; }
-  .price-value { font-size: 32px; font-weight: 800; }
-  .price-value.up { color: var(--green); }
-  .price-value.down { color: var(--red); }
-  canvas#chart { width: 100%; height: 160px; background: var(--card); border-radius: 14px; }
-  .updown-row { display: flex; gap: 10px; margin-top: 14px; }
-  .updown-btn {
-    flex: 1; padding: 16px 0; text-align: center; border-radius: 12px; font-weight: 800; font-size: 16px; cursor: pointer;
+  .auto-row{display:flex; align-items:center; gap:8px; margin-bottom:12px; font-size:13px; color:var(--muted);}
+  .auto-row input{
+    flex:1; background:var(--card2); border:1px solid var(--line); color:var(--text);
+    border-radius:8px; padding:8px; font-weight:700;
   }
-  .up-btn { background: rgba(46,204,113,0.15); color: var(--green); border: 1px solid var(--green); }
-  .down-btn { background: rgba(231,76,60,0.15); color: var(--red); border: 1px solid var(--red); }
-  .updown-btn.selected.up-btn { background: var(--green); color: #06210f; }
-  .updown-btn.selected.down-btn { background: var(--red); color: #2a0705; }
-
-  .toast {
-    position: fixed; bottom: 16px; left: 16px; right: 16px; background: var(--card);
-    padding: 12px 16px; border-radius: 12px; text-align: center; font-weight: 600;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  .btn{
+    width:100%; padding:14px; border:none; border-radius:12px; font-size:16px;
+    font-weight:800; cursor:pointer; color:#fff;
   }
-  .toast.show { opacity: 1; }
-  .lb-row { display: flex; justify-content: space-between; padding: 10px 12px; background: var(--card); border-radius: 10px; margin-bottom: 6px; }
-
-  .input-label { display: block; margin-top: 12px; margin-bottom: 4px; font-size: 13px; color: var(--hint); }
-  .text-input {
-    width: 100%; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12);
-    background: var(--card); color: var(--text); font-size: 15px;
+  .btn-green{background:var(--green);}
+  .btn-red{background:var(--red);}
+  .btn-blue{background:var(--blue);}
+  .btn-gold{background:var(--gold); color:#20180a;}
+  .btn:disabled{opacity:.45;}
+  .btn-row{display:flex; gap:10px;}
+  .msg{font-size:13px; text-align:center; margin-top:10px; color:var(--muted); min-height:16px;}
+  .msg.err{color:var(--red);}
+  .msg.ok{color:var(--green);}
+  /* ---- Trading ---- */
+  .trade-price{font-size:30px; font-weight:800; text-align:center;}
+  .trade-timer{text-align:center; color:var(--muted); font-size:13px; margin-bottom:10px; font-weight:600;}
+  .chart-wrap{height:160px; margin-bottom:14px;}
+  .chart-wrap svg{width:100%; height:100%;}
+  .updown{display:flex; gap:10px; margin-top:10px;}
+  .updown button{flex:1; padding:16px; border:none; border-radius:12px; font-size:16px; font-weight:800; color:#fff; display:flex; align-items:center; justify-content:center; gap:6px;}
+  /* ---- Leaderboard ---- */
+  .lb-row{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);}
+  .lb-rank{width:24px; font-weight:800; color:var(--muted); text-align:center;}
+  .lb-rank.g1{color:var(--gold);}
+  .lb-name{flex:1; font-weight:600;}
+  .lb-pts{font-weight:800; color:var(--gold);}
+  /* ---- Gift code / wallet ---- */
+  .redeem-row{display:flex; gap:8px;}
+  .redeem-row input{
+    flex:1; background:var(--card2); border:1px solid var(--line); color:var(--text);
+    border-radius:10px; padding:12px; font-size:15px; font-weight:700; letter-spacing:1px; text-transform:uppercase;
   }
-  #screen-admin h3 { margin-top: 22px; margin-bottom: 4px; }
-  #screen-admin h3:first-child { margin-top: 8px; }
+  .redeem-row button{padding:0 18px; border-radius:10px;}
+  h3{margin:0 0 10px; font-size:15px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px;}
+  nav{
+    position:fixed; bottom:0; left:0; right:0; background:var(--card); border-top:1px solid var(--line);
+    display:flex; padding:6px 0; z-index:20;
+  }
+  nav .nav-item{
+    flex:1; text-align:center; font-size:11px; color:var(--muted); padding:6px 0; font-weight:700; cursor:pointer;
+  }
+  nav .nav-item.active{color:var(--blue);}
+  nav .nav-item .ic{font-size:20px; display:block;}
 </style>
 </head>
 <body>
 
-<div class="topbar">
-  <div class="balance">💰 <span id="balance">--</span> pts</div>
-  <div id="username" style="color: var(--hint); font-size: 13px;"></div>
-</div>
+<header>
+  <div class="brand">Points <span>Arcade</span></div>
+  <div class="balance"><span class="coin">●</span><span id="balanceText">0</span></div>
+</header>
 
-<div class="tabs">
-  <div class="tab active" data-tab="crash">🎮 Crash</div>
-  <div class="tab" data-tab="trading">📈 Trading</div>
-  <div class="tab" data-tab="leaderboard">🏆 Top</div>
-  <div class="tab" data-tab="admin" id="adminTab" style="display:none;">⚙️ Admin</div>
-</div>
+<main>
 
-<!-- CRASH SCREEN -->
-<div class="screen active" id="screen-crash">
-  <div class="crash-box" id="crashBox">
-    <div class="multiplier-text joining" id="crashMultText">Waiting for round...</div>
-    <div class="plane" id="plane">✈️</div>
-  </div>
-  <div class="status-line" id="crashStatusLine"></div>
-
-  <div id="joinPanel">
-    <label class="input-label">Bet amount (points)</label>
-    <input type="number" id="crashAmountInput" class="text-input" placeholder="e.g. 200" min="1">
-    <label class="input-label">Auto cash out at (optional, e.g. 2.5)</label>
-    <input type="number" id="crashAutoInput" class="text-input" placeholder="Leave empty to cash out manually" min="1.01" step="0.01">
-    <button class="primary-btn" id="joinBtn">Join Round</button>
+  <div class="tabs">
+    <div class="tab active" data-view="crashView">🚀 Crash</div>
+    <div class="tab" data-view="tradeView">📈 Trading</div>
+    <div class="tab" data-view="lbView">🏆 Top</div>
+    <div class="tab" data-view="walletView">🎁 Wallet</div>
   </div>
 
-  <button class="primary-btn cashout-btn" id="cashoutBtn" style="display:none;">💸 CASH OUT</button>
+  <!-- CRASH VIEW -->
+  <div class="view active" id="crashView">
+    <div class="card">
+      <div class="crash-history" id="crashHistory"></div>
+      <div class="crash-display">
+        <div class="crash-plane" id="crashPlane">🚀</div>
+        <div class="crash-mult" id="crashMult">1.00x</div>
+        <div class="crash-sub" id="crashSub">Waiting for players…</div>
+      </div>
 
-  <div class="players-list" id="crashPlayers"></div>
-</div>
+      <div class="amount-row">
+        <button id="crashMinus">−</button>
+        <input type="number" id="crashAmount" value="50" min="1">
+        <button id="crashPlus">+</button>
+      </div>
+      <div class="quick-amounts" id="crashQuick"></div>
+      <div class="auto-row">
+        <span>Auto cash-out</span>
+        <input type="number" id="crashAuto" placeholder="e.g. 2.00 (optional)" step="0.01">
+      </div>
 
-<!-- TRADING SCREEN -->
-<div class="screen" id="screen-trading">
-  <div class="price-box">
-    <div class="price-value" id="tradingPrice">--</div>
-    <div class="status-line" id="tradingStatusLine"></div>
+      <div class="btn-row">
+        <button class="btn btn-green" id="crashJoinBtn">Join Round</button>
+        <button class="btn btn-red" id="crashCashoutBtn" style="display:none;">Cash Out</button>
+      </div>
+      <div class="msg" id="crashMsg"></div>
+
+      <div class="players-list" id="crashPlayers"></div>
+    </div>
   </div>
-  <canvas id="chart" width="600" height="320"></canvas>
-  <label class="input-label">Bet amount (points)</label>
-  <input type="number" id="tradingAmountInput" class="text-input" placeholder="e.g. 100" min="1">
-  <div class="updown-row">
-    <div class="updown-btn up-btn" id="upBtn">📈 UP</div>
-    <div class="updown-btn down-btn" id="downBtn">📉 DOWN</div>
+
+  <!-- TRADING VIEW -->
+  <div class="view" id="tradeView">
+    <div class="card">
+      <div class="trade-price" id="tradePrice">--</div>
+      <div class="trade-timer" id="tradeTimer">Waiting…</div>
+      <div class="chart-wrap"><svg id="tradeChart" viewBox="0 0 300 140" preserveAspectRatio="none"></svg></div>
+
+      <div class="amount-row">
+        <button id="tradeMinus">−</button>
+        <input type="number" id="tradeAmount" value="50" min="1">
+        <button id="tradePlus">+</button>
+      </div>
+      <div class="quick-amounts" id="tradeQuick"></div>
+
+      <div class="updown">
+        <button class="btn-green" id="tradeUpBtn">▲ Up</button>
+        <button class="btn-red" id="tradeDownBtn">▼ Down</button>
+      </div>
+      <div class="msg" id="tradeMsg"></div>
+    </div>
   </div>
-  <div class="status-line" id="tradingResultLine"></div>
-</div>
 
-<!-- LEADERBOARD SCREEN -->
-<div class="screen" id="screen-leaderboard">
-  <div id="lbList" style="margin-top:12px;"></div>
-</div>
+  <!-- LEADERBOARD VIEW -->
+  <div class="view" id="lbView">
+    <div class="card">
+      <h3>Top Balances</h3>
+      <div id="lbList"></div>
+    </div>
+  </div>
 
-<!-- ADMIN SCREEN -->
-<div class="screen" id="screen-admin">
-  <h3>🎮 Crash Settings</h3>
-  <label class="input-label">Join window (seconds)</label>
-  <input type="number" class="text-input" id="admJoinWindow">
-  <label class="input-label">Tick interval (seconds)</label>
-  <input type="number" step="0.1" class="text-input" id="admCrashTick">
-  <label class="input-label">Min crash cap (x)</label>
-  <input type="number" step="0.01" class="text-input" id="admMinCap">
-  <label class="input-label">Max crash cap (x)</label>
-  <input type="number" step="1" class="text-input" id="admMaxCap">
-  <label class="input-label">Growth rate (higher = climbs faster)</label>
-  <input type="number" step="0.01" class="text-input" id="admGrowth">
-  <button class="primary-btn" id="admSaveCrash">Save Crash Settings</button>
+  <!-- WALLET / GIFT CODE VIEW -->
+  <div class="view" id="walletView">
+    <div class="card">
+      <h3>Your Balance</h3>
+      <div class="trade-price" style="text-align:left;"><span id="walletBalance">0</span> pts</div>
+    </div>
+    <div class="card">
+      <h3>Redeem Gift Code</h3>
+      <p style="color:var(--muted); font-size:13px; margin-top:-6px;">
+        Got a code from an admin? Enter it below to add points to your balance. This app uses play points only — there is no real-money deposit or withdrawal.
+      </p>
+      <div class="redeem-row">
+        <input type="text" id="redeemInput" placeholder="GIFT-CODE">
+        <button class="btn btn-gold" id="redeemBtn" style="width:auto;">Redeem</button>
+      </div>
+      <div class="msg" id="redeemMsg"></div>
+    </div>
+  </div>
 
-  <h3>📈 Trading Settings</h3>
-  <label class="input-label">Round length (seconds)</label>
-  <input type="number" class="text-input" id="admRoundSeconds">
-  <label class="input-label">Tick interval (seconds)</label>
-  <input type="number" step="0.1" class="text-input" id="admTradingTick">
-  <label class="input-label">Volatility (% per tick)</label>
-  <input type="number" step="0.1" class="text-input" id="admVolatility">
-  <label class="input-label">Trend bias (small drift, -2..2, 0 = fair)</label>
-  <input type="number" step="0.1" class="text-input" id="admBias">
-  <label class="input-label">Win payout multiplier</label>
-  <input type="number" step="0.1" class="text-input" id="admPayout">
-  <button class="primary-btn" id="admSaveTrading">Save Trading Settings</button>
+</main>
 
-  <h3>👥 Adjust User Points</h3>
-  <label class="input-label">Target user ID</label>
-  <input type="text" class="text-input" id="admTargetUid" placeholder="Telegram user ID">
-  <label class="input-label">Amount (negative to deduct)</label>
-  <input type="number" class="text-input" id="admDelta" placeholder="e.g. 500 or -200">
-  <button class="primary-btn" id="admApplyPoints">Apply</button>
-</div>
-
-<div class="toast" id="toast"></div>
+<nav>
+  <div class="nav-item active" data-view="crashView"><span class="ic">🚀</span>Crash</div>
+  <div class="nav-item" data-view="tradeView"><span class="ic">📈</span>Trading</div>
+  <div class="nav-item" data-view="lbView"><span class="ic">🏆</span>Top</div>
+  <div class="nav-item" data-view="walletView"><span class="ic">🎁</span>Wallet</div>
+</nav>
 
 <script>
 const tg = window.Telegram ? window.Telegram.WebApp : null;
 if (tg) { tg.ready(); tg.expand(); }
 
-// Fallback for testing outside Telegram (open this file directly in a browser):
-// pretend to be user "999:Tester" so the API's dev fallback accepts it.
-const initData = (tg && tg.initData) ? tg.initData : "999:Tester";
-if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-  document.getElementById("username").textContent = tg.initDataUnsafe.user.first_name || "";
+// Dev fallback so you can test in a normal browser without Telegram.
+// In real Telegram, tg.initData is already signed and populated.
+function getInitData(){
+  if (tg && tg.initData) return tg.initData;
+  let uid = localStorage.getItem('dev_uid');
+  if (!uid) {
+    uid = String(Math.floor(Math.random()*900000)+100000);
+    localStorage.setItem('dev_uid', uid);
+  }
+  return uid + ':DevPlayer';
 }
+const initData = getInitData();
+const QUICK_AMOUNTS = [50, 100, 250, 500];
 
-let myUid = null;
-let myBalance = 0;
-let isAdmin = false;
-
-function showToast(msg) {
-  const t = document.getElementById("toast");
-  t.textContent = msg;
-  t.classList.add("show");
-  setTimeout(() => t.classList.remove("show"), 2200);
-}
-
-// ---- tabs ----
-document.querySelectorAll(".tab").forEach(tab => {
-  tab.onclick = () => {
-    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-    tab.classList.add("active");
-    document.getElementById("screen-" + tab.dataset.tab).classList.add("active");
-    if (tab.dataset.tab === "leaderboard") loadLeaderboard();
-    if (tab.dataset.tab === "admin") loadAdminSettings();
-  };
-});
-
-// ---- API helpers ----
-async function apiGet(path) {
-  const r = await fetch(path);
-  return r.json();
-}
-async function apiPost(path, body) {
-  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const data = await r.json();
-  if (!r.ok) throw new Error(data.detail || "Request failed");
+async function api(path, method='GET', body=null){
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
+  const url = method === 'GET' && path.indexOf('?') === -1 ? path : path;
+  const res = await fetch(url, opts);
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) throw new Error(data.detail || 'Request failed');
   return data;
 }
 
-async function refreshMe() {
+// ---------- Navigation ----------
+function showView(id){
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === id));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === id));
+}
+document.querySelectorAll('.tab, .nav-item').forEach(el => {
+  el.addEventListener('click', () => showView(el.dataset.view));
+});
+
+// ---------- Balance ----------
+let myBalance = 0;
+function setBalance(v){
+  myBalance = v;
+  document.getElementById('balanceText').textContent = Math.floor(v).toLocaleString();
+  document.getElementById('walletBalance').textContent = Math.floor(v).toLocaleString();
+}
+async function refreshMe(){
   try {
-    const me = await apiGet("/api/me?initData=" + encodeURIComponent(initData));
-    myUid = String(me.uid);
-    myBalance = me.points;
-    isAdmin = !!me.is_admin;
-    document.getElementById("balance").textContent = me.points.toFixed(0);
-    document.getElementById("adminTab").style.display = isAdmin ? "block" : "none";
-  } catch (e) { /* ignore */ }
+    const me = await api('/api/me?initData=' + encodeURIComponent(initData));
+    setBalance(me.points);
+  } catch(e){ console.error(e); }
 }
 
-// ==================== CRASH ====================
+// ---------- Quick amount buttons ----------
+function buildQuick(containerId, inputId){
+  const c = document.getElementById(containerId);
+  c.innerHTML = '';
+  QUICK_AMOUNTS.forEach(a => {
+    const b = document.createElement('button');
+    b.textContent = a;
+    b.onclick = () => document.getElementById(inputId).value = a;
+    c.appendChild(b);
+  });
+}
+buildQuick('crashQuick', 'crashAmount');
+buildQuick('tradeQuick', 'tradeAmount');
 
-function planePosition(mult, phase) {
-  // maps multiplier (1x..~50x visually capped) to an x/y position along a curve
-  const capped = Math.min(mult, 50);
-  const t = Math.log(capped) / Math.log(50); // 0..1
-  const left = 8 + t * 78;
-  const bottom = 8 + t * 68;
-  return { left, bottom };
+document.getElementById('crashMinus').onclick = () => {
+  const el = document.getElementById('crashAmount');
+  el.value = Math.max(1, (parseFloat(el.value)||0) - 10);
+};
+document.getElementById('crashPlus').onclick = () => {
+  const el = document.getElementById('crashAmount');
+  el.value = (parseFloat(el.value)||0) + 10;
+};
+document.getElementById('tradeMinus').onclick = () => {
+  const el = document.getElementById('tradeAmount');
+  el.value = Math.max(1, (parseFloat(el.value)||0) - 10);
+};
+document.getElementById('tradePlus').onclick = () => {
+  const el = document.getElementById('tradeAmount');
+  el.value = (parseFloat(el.value)||0) + 10;
+};
+
+// ---------- CRASH ----------
+let hasJoinedThisRound = false;
+let lastPhase = null;
+
+function crashMsg(text, type){
+  const el = document.getElementById('crashMsg');
+  el.textContent = text || '';
+  el.className = 'msg' + (type ? ' ' + type : '');
 }
 
-async function pollCrash() {
+function renderCrashHistory(hist){
+  const c = document.getElementById('crashHistory');
+  c.innerHTML = '';
+  (hist||[]).slice(-15).forEach(v => {
+    const s = document.createElement('span');
+    s.textContent = v.toFixed(2) + 'x';
+    s.className = v >= 2 ? 'high' : (v >= 1.2 ? 'mid' : 'low');
+    c.appendChild(s);
+  });
+}
+
+async function pollCrash(){
   try {
-    const s = await apiGet("/api/crash");
-    const box = document.getElementById("crashBox");
-    const multEl = document.getElementById("crashMultText");
-    const plane = document.getElementById("plane");
-    const statusLine = document.getElementById("crashStatusLine");
-    const joinPanel = document.getElementById("joinPanel");
-    const cashoutBtn = document.getElementById("cashoutBtn");
+    const st = await api('/api/crash');
+    renderCrashHistory(st.history);
 
-    const me = s.players.find(p => p.uid === myUid);
+    const multEl = document.getElementById('crashMult');
+    const subEl = document.getElementById('crashSub');
+    const planeEl = document.getElementById('crashPlane');
+    const joinBtn = document.getElementById('crashJoinBtn');
+    const cashBtn = document.getElementById('crashCashoutBtn');
 
-    if (s.phase === "joining") {
-      multEl.className = "multiplier-text joining";
-      multEl.textContent = "Joins close in " + Math.ceil(s.join_seconds_left || 0) + "s";
-      statusLine.textContent = s.players.length + " player(s) joined";
-      plane.style.left = "8%"; plane.style.bottom = "8%"; plane.classList.remove("crashed");
-      joinPanel.style.display = me ? "none" : "block";
-      cashoutBtn.style.display = "none";
-      if (me) statusLine.textContent += " · You joined with " + me.bet + " pts";
-      hasJoinedCrash = !!me; hasCashedOut = false;
-    } else if (s.phase === "flying") {
-      multEl.className = "multiplier-text flying";
-      multEl.textContent = s.multiplier.toFixed(2) + "x";
-      statusLine.textContent = "✈️ Flying...";
-      const pos = planePosition(s.multiplier, "flying");
-      plane.style.left = pos.left + "%"; plane.style.bottom = pos.bottom + "%";
-      plane.classList.remove("crashed");
-      joinPanel.style.display = "none";
-      if (me && !me.cashed_out) {
-        cashoutBtn.style.display = "block";
-        cashoutBtn.disabled = false;
-        cashoutBtn.textContent = "💸 CASH OUT (" + (me.bet * s.multiplier).toFixed(0) + " pts)";
+    if (st.phase === 'joining'){
+      multEl.textContent = '1.00x';
+      multEl.className = 'crash-mult';
+      subEl.textContent = `Next round starts in ${Math.ceil(st.join_seconds_left||0)}s — ${st.players.length} joined`;
+      planeEl.style.transform = 'translateY(60px)';
+      joinBtn.style.display = 'block';
+      cashBtn.style.display = 'none';
+      joinBtn.disabled = false;
+      if (lastPhase !== 'joining') hasJoinedThisRound = false;
+    } else if (st.phase === 'flying'){
+      multEl.textContent = st.multiplier.toFixed(2) + 'x';
+      multEl.className = 'crash-mult flying';
+      subEl.textContent = 'Flying…';
+      const t = Math.min(60, (st.multiplier - 1) * 40);
+      planeEl.style.transform = `translateY(${60 - t}px) translateX(${t}px)`;
+      joinBtn.style.display = 'none';
+      const me = st.players.find(p => p.uid === String(getMyUid()));
+      if (hasJoinedThisRound && me && !me.cashed_out){
+        cashBtn.style.display = 'block';
+        cashBtn.disabled = false;
       } else {
-        cashoutBtn.style.display = "none";
+        cashBtn.style.display = hasJoinedThisRound ? 'block' : 'none';
+        cashBtn.disabled = true;
       }
-    } else if (s.phase === "crashed") {
-      multEl.className = "multiplier-text crashed";
-      multEl.textContent = "💥 " + (s.crash_point || s.multiplier).toFixed(2) + "x";
-      statusLine.textContent = "Crashed! New round starting soon...";
-      plane.classList.add("crashed"); plane.textContent = "💥";
-      setTimeout(() => { plane.textContent = "✈️"; }, 1500);
-      joinPanel.style.display = "none";
-      cashoutBtn.style.display = "none";
-      if (me) refreshMe();
+    } else if (st.phase === 'crashed'){
+      multEl.textContent = (st.crash_point||st.multiplier).toFixed(2) + 'x';
+      multEl.className = 'crash-mult crashed';
+      subEl.textContent = 'Crashed! Next round starting soon…';
+      joinBtn.style.display = 'block';
+      joinBtn.disabled = true;
+      cashBtn.style.display = 'none';
     }
+    lastPhase = st.phase;
 
-    const playersEl = document.getElementById("crashPlayers");
-    playersEl.innerHTML = "";
-    s.players.forEach(p => {
-      const row = document.createElement("div");
-      let cls = "player-row";
-      let text = p.name + " — " + p.bet + " pts";
-      if (p.auto_cashout && !p.cashed_out) text += " (auto @ " + p.auto_cashout + "x)";
-      if (s.phase === "crashed") {
-        if (p.cashed_out) { cls += " won"; text += " ✅ " + p.cashout_multiplier.toFixed(2) + "x"; }
-        else { cls += " lost"; text += " ❌ lost"; }
-      } else if (p.cashed_out) {
-        cls += " won"; text += " ✅ cashed " + p.cashout_multiplier.toFixed(2) + "x";
-      } else if (s.phase === "flying") {
-        cls += " flying"; text += " ⏳ flying";
-      }
-      row.className = cls;
-      row.innerHTML = "<span>" + text + "</span>";
-      playersEl.appendChild(row);
+    const plEl = document.getElementById('crashPlayers');
+    plEl.innerHTML = '';
+    st.players.slice().reverse().forEach(p => {
+      const row = document.createElement('div');
+      row.className = 'player-row';
+      const status = p.cashed_out
+        ? `<span class="won">${p.cashout_multiplier.toFixed(2)}x</span>`
+        : `<span class="waiting">in flight</span>`;
+      row.innerHTML = `<span>${escapeHtml(p.name)} — ${p.bet}</span>${status}`;
+      plEl.appendChild(row);
     });
-  } catch (e) { console.error(e); }
+  } catch(e){ console.error(e); }
 }
 
-document.getElementById("joinBtn").onclick = async () => {
-  const amount = parseFloat(document.getElementById("crashAmountInput").value);
-  const autoRaw = document.getElementById("crashAutoInput").value;
-  const auto_cashout = autoRaw ? parseFloat(autoRaw) : null;
-  if (!amount || amount <= 0) { showToast("⚠️ Enter a valid amount."); return; }
-  if (auto_cashout !== null && auto_cashout < 1.01) { showToast("⚠️ Auto cash out must be at least 1.01x."); return; }
+function getMyUid(){
+  if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) return tg.initDataUnsafe.user.id;
+  return initData.split(':')[0];
+}
+
+document.getElementById('crashJoinBtn').onclick = async () => {
+  const amount = parseFloat(document.getElementById('crashAmount').value);
+  const autoVal = document.getElementById('crashAuto').value;
+  const auto_cashout = autoVal ? parseFloat(autoVal) : null;
   try {
-    const res = await apiPost("/api/crash/join", { initData, amount, auto_cashout });
-    myBalance = res.balance;
-    document.getElementById("balance").textContent = res.balance.toFixed(0);
-    showToast("✅ Joined with " + amount + " points" + (auto_cashout ? " (auto @ " + auto_cashout + "x)" : "") + "!");
-  } catch (e) { showToast("⚠️ " + e.message); }
+    crashMsg('Joining…');
+    const res = await api('/api/crash/join', 'POST', { initData, amount, auto_cashout });
+    setBalance(res.balance);
+    hasJoinedThisRound = true;
+    crashMsg('Joined! Wait for lift-off.', 'ok');
+  } catch(e){ crashMsg(e.message, 'err'); }
 };
 
-document.getElementById("cashoutBtn").onclick = async () => {
+document.getElementById('crashCashoutBtn').onclick = async () => {
   try {
-    const res = await apiPost("/api/crash/cashout", { initData });
-    myBalance = res.balance;
-    document.getElementById("balance").textContent = res.balance.toFixed(0);
-    showToast("💸 Cashed out at " + res.multiplier.toFixed(2) + "x — +" + res.winnings.toFixed(0) + " pts!");
-  } catch (e) { showToast("⚠️ " + e.message); }
+    const res = await api('/api/crash/cashout', 'POST', { initData });
+    setBalance(res.balance);
+    crashMsg(`Cashed out at ${res.multiplier.toFixed(2)}x — +${res.winnings} pts`, 'ok');
+    document.getElementById('crashCashoutBtn').disabled = true;
+  } catch(e){ crashMsg(e.message, 'err'); }
 };
 
-// ==================== TRADING ====================
+// ---------- TRADING ----------
+function tradeMsg(text, type){
+  const el = document.getElementById('tradeMsg');
+  el.textContent = text || '';
+  el.className = 'msg' + (type ? ' ' + type : '');
+}
 
-function drawChart(history, startPrice) {
-  const canvas = document.getElementById("chart");
-  const ctx = canvas.getContext("2d");
-  const w = canvas.width, h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
-  if (history.length < 2) return;
-
+function drawChart(history){
+  const svg = document.getElementById('tradeChart');
+  if (!history || history.length < 2){ svg.innerHTML=''; return; }
+  const w = 300, h = 140, pad = 8;
   const min = Math.min(...history), max = Math.max(...history);
-  const pad = (max - min) * 0.1 || 1;
-  const lo = min - pad, hi = max + pad;
-  const stepX = w / (history.length - 1);
-
-  ctx.beginPath();
-  history.forEach((p, i) => {
-    const x = i * stepX;
-    const y = h - ((p - lo) / (hi - lo)) * h;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  });
-  const last = history[history.length - 1];
-  ctx.strokeStyle = last >= startPrice ? "#2ecc71" : "#e74c3c";
-  ctx.lineWidth = 3;
-  ctx.stroke();
-
-  // start-price reference line
-  const startY = h - ((startPrice - lo) / (hi - lo)) * h;
-  ctx.beginPath();
-  ctx.setLineDash([4, 4]);
-  ctx.moveTo(0, startY); ctx.lineTo(w, startY);
-  ctx.strokeStyle = "rgba(255,255,255,0.3)";
-  ctx.lineWidth = 1;
-  ctx.stroke();
-  ctx.setLineDash([]);
+  const range = (max - min) || 1;
+  const stepX = (w - pad*2) / (history.length - 1);
+  let points = history.map((v,i) => {
+    const x = pad + i*stepX;
+    const y = h - pad - ((v - min) / range) * (h - pad*2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const up = history[history.length-1] >= history[0];
+  const color = up ? '#22c55e' : '#ef4444';
+  svg.innerHTML = `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
 }
 
-async function pollTrading() {
+let tradeHasBet = false;
+async function pollTrading(){
   try {
-    const s = await apiGet("/api/trading");
-    const priceEl = document.getElementById("tradingPrice");
-    const statusLine = document.getElementById("tradingStatusLine");
-    const resultLine = document.getElementById("tradingResultLine");
-
-    priceEl.textContent = s.price.toFixed(2);
-    priceEl.className = "price-value " + (s.price >= s.start_price ? "up" : "down");
-    statusLine.textContent = "Betting closes in " + Math.ceil(s.seconds_left) + "s · " + s.bets.length + " bet(s)";
-    drawChart(s.history, s.start_price);
-
-    const mine = s.bets.find(b => b.uid === myUid);
-    const upBtn = document.getElementById("upBtn"), downBtn = document.getElementById("downBtn");
-    upBtn.classList.remove("selected"); downBtn.classList.remove("selected");
-    if (mine) {
-      (mine.side === "up" ? upBtn : downBtn).classList.add("selected");
-      upBtn.style.pointerEvents = "none"; downBtn.style.pointerEvents = "none";
+    const st = await api('/api/trading');
+    document.getElementById('tradePrice').textContent = st.price.toFixed(2);
+    drawChart(st.history);
+    if (st.seconds_left > 0.3){
+      document.getElementById('tradeTimer').textContent = `Round ends in ${Math.ceil(st.seconds_left)}s`;
+      document.getElementById('tradeUpBtn').disabled = false;
+      document.getElementById('tradeDownBtn').disabled = false;
     } else {
-      upBtn.style.pointerEvents = "auto"; downBtn.style.pointerEvents = "auto";
+      document.getElementById('tradeTimer').textContent = 'Round settling…';
     }
-
-    if (s.last_result) {
-      const r = s.last_result;
-      const mineResult = r.results.find(x => x.uid === myUid);
-      let line = "Last: " + r.start.toFixed(2) + " → " + r.end.toFixed(2) + " (" + r.direction.toUpperCase() + ")";
-      if (mineResult) line += mineResult.won ? " · You won " + mineResult.payout.toFixed(0) + " pts!" : " · You lost this round";
-      resultLine.textContent = line;
-      if (mineResult) refreshMe();
-    } else {
-      resultLine.textContent = "";
+    if (st.last_result){
+      const dir = st.last_result.direction;
+      const dirLabel = dir === 'up' ? '▲ UP' : dir === 'down' ? '▼ DOWN' : '— FLAT';
+      const myRes = (st.last_result.results||[]).find(r => r.uid === String(getMyUid()));
+      if (myRes){
+        if (myRes.won){
+          tradeMsg(`Result: ${dirLabel} — you won +${myRes.payout} pts!`, 'ok');
+        } else {
+          tradeMsg(`Result: ${dirLabel} — better luck next round.`, 'err');
+        }
+        refreshMe();
+      }
     }
-  } catch (e) { console.error(e); }
+  } catch(e){ console.error(e); }
 }
 
-async function placeTradingBet(side) {
-  const amount = parseFloat(document.getElementById("tradingAmountInput").value);
-  if (!amount || amount <= 0) { showToast("⚠️ Enter a valid amount."); return; }
+document.getElementById('tradeUpBtn').onclick = () => placeTrade('up');
+document.getElementById('tradeDownBtn').onclick = () => placeTrade('down');
+async function placeTrade(side){
+  const amount = parseFloat(document.getElementById('tradeAmount').value);
   try {
-    const res = await apiPost("/api/trading/bet", { initData, side, amount });
-    myBalance = res.balance;
-    document.getElementById("balance").textContent = res.balance.toFixed(0);
-    showToast("✅ Bet placed: " + amount + " pts on " + side.toUpperCase());
-  } catch (e) { showToast("⚠️ " + e.message); }
-}
-document.getElementById("upBtn").onclick = () => placeTradingBet("up");
-document.getElementById("downBtn").onclick = () => placeTradingBet("down");
-
-// ==================== LEADERBOARD ====================
-
-async function loadLeaderboard() {
-  const rows = await apiGet("/api/leaderboard");
-  const el = document.getElementById("lbList");
-  el.innerHTML = "";
-  const medals = ["🥇", "🥈", "🥉"];
-  rows.forEach((r, i) => {
-    const row = document.createElement("div");
-    row.className = "lb-row";
-    row.innerHTML = "<span>" + (medals[i] || (i + 1) + ".") + " " + r.name + "</span><span>" + r.points.toFixed(0) + " pts</span>";
-    el.appendChild(row);
-  });
-  if (!rows.length) el.innerHTML = "<div class='status-line'>No players yet.</div>";
+    tradeMsg('Placing bet…');
+    const res = await api('/api/trading/bet', 'POST', { initData, side, amount });
+    setBalance(res.balance);
+    tradeMsg(`Bet placed on ${side.toUpperCase()}. Good luck!`, 'ok');
+  } catch(e){ tradeMsg(e.message, 'err'); }
 }
 
-// ==================== ADMIN ====================
-
-async function loadAdminSettings() {
+// ---------- LEADERBOARD ----------
+async function pollLeaderboard(){
   try {
-    const s = await apiGet("/api/admin/settings?initData=" + encodeURIComponent(initData));
-    document.getElementById("admJoinWindow").value = s.crash.join_window_seconds;
-    document.getElementById("admCrashTick").value = s.crash.tick_interval;
-    document.getElementById("admMinCap").value = s.crash.min_crash_cap;
-    document.getElementById("admMaxCap").value = s.crash.max_crash_cap;
-    document.getElementById("admGrowth").value = s.crash.growth_rate;
-    document.getElementById("admRoundSeconds").value = s.trading.round_seconds;
-    document.getElementById("admTradingTick").value = s.trading.tick_interval;
-    document.getElementById("admVolatility").value = s.trading.volatility_pct;
-    document.getElementById("admBias").value = s.trading.trend_bias_pct;
-    document.getElementById("admPayout").value = s.trading.win_payout_multiplier;
-  } catch (e) { showToast("⚠️ " + e.message); }
+    const rows = await api('/api/leaderboard');
+    const el = document.getElementById('lbList');
+    el.innerHTML = '';
+    rows.forEach((r, i) => {
+      const row = document.createElement('div');
+      row.className = 'lb-row';
+      row.innerHTML = `<div class="lb-rank ${i===0?'g1':''}">${i+1}</div><div class="lb-name">${escapeHtml(r.name)}</div><div class="lb-pts">${Math.floor(r.points).toLocaleString()}</div>`;
+      el.appendChild(row);
+    });
+  } catch(e){ console.error(e); }
 }
 
-async function saveAdminSetting(path, value) {
-  await apiPost("/api/admin/settings", { initData, path, value });
-}
-
-document.getElementById("admSaveCrash").onclick = async () => {
+// ---------- GIFT CODE ----------
+document.getElementById('redeemBtn').onclick = async () => {
+  const code = document.getElementById('redeemInput').value.trim();
+  const el = document.getElementById('redeemMsg');
+  if (!code){ el.textContent = 'Enter a code first.'; el.className='msg err'; return; }
   try {
-    await saveAdminSetting(["crash", "join_window_seconds"], parseFloat(document.getElementById("admJoinWindow").value));
-    await saveAdminSetting(["crash", "tick_interval"], parseFloat(document.getElementById("admCrashTick").value));
-    await saveAdminSetting(["crash", "min_crash_cap"], parseFloat(document.getElementById("admMinCap").value));
-    await saveAdminSetting(["crash", "max_crash_cap"], parseFloat(document.getElementById("admMaxCap").value));
-    await saveAdminSetting(["crash", "growth_rate"], parseFloat(document.getElementById("admGrowth").value));
-    showToast("✅ Crash settings saved!");
-  } catch (e) { showToast("⚠️ " + e.message); }
+    el.textContent = 'Redeeming…'; el.className = 'msg';
+    const res = await api('/api/redeem', 'POST', { initData, code });
+    setBalance(res.balance);
+    el.textContent = `Success! +${res.credited} pts added.`;
+    el.className = 'msg ok';
+    document.getElementById('redeemInput').value = '';
+  } catch(e){
+    el.textContent = e.message;
+    el.className = 'msg err';
+  }
 };
 
-document.getElementById("admSaveTrading").onclick = async () => {
-  try {
-    await saveAdminSetting(["trading", "round_seconds"], parseFloat(document.getElementById("admRoundSeconds").value));
-    await saveAdminSetting(["trading", "tick_interval"], parseFloat(document.getElementById("admTradingTick").value));
-    await saveAdminSetting(["trading", "volatility_pct"], parseFloat(document.getElementById("admVolatility").value));
-    await saveAdminSetting(["trading", "trend_bias_pct"], parseFloat(document.getElementById("admBias").value));
-    await saveAdminSetting(["trading", "win_payout_multiplier"], parseFloat(document.getElementById("admPayout").value));
-    showToast("✅ Trading settings saved!");
-  } catch (e) { showToast("⚠️ " + e.message); }
-};
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
-document.getElementById("admApplyPoints").onclick = async () => {
-  const target_uid = document.getElementById("admTargetUid").value.trim();
-  const delta = parseFloat(document.getElementById("admDelta").value);
-  if (!target_uid || isNaN(delta)) { showToast("⚠️ Enter a user ID and amount."); return; }
-  try {
-    const res = await apiPost("/api/admin/points", { initData, target_uid, delta });
-    showToast("✅ New balance for " + target_uid + ": " + res.balance.toFixed(0));
-  } catch (e) { showToast("⚠️ " + e.message); }
-};
-
-// ==================== INIT ====================
-
+// ---------- Boot ----------
 refreshMe();
-setInterval(pollCrash, 500);
-setInterval(pollTrading, 1000);
 pollCrash();
 pollTrading();
+pollLeaderboard();
+setInterval(pollCrash, 500);
+setInterval(pollTrading, 1000);
+setInterval(pollLeaderboard, 8000);
+setInterval(refreshMe, 6000);
 </script>
+
 </body>
 </html>
