@@ -13,6 +13,11 @@
 #  algorithm so a user can only ever spend/see their own points —
 #  nobody can fake being someone else by editing requests.
 #
+#  Points are 100% virtual — there is no deposit, withdrawal, or
+#  real-money payment endpoint anywhere in this file. The only way
+#  to top up is an admin-issued single-use gift code (see the
+#  gift code section below) or the admin points endpoint.
+#
 #  IMPORTANT: Telegram requires Mini App URLs to be HTTPS and
 #  publicly reachable. You must deploy this somewhere (Render,
 #  Railway, Fly.io, a VPS with nginx+certbot, etc.) — it cannot
@@ -26,6 +31,8 @@ import json
 import math
 import os
 import random
+import secrets
+import string
 import time
 from datetime import datetime, timedelta
 from urllib.parse import parse_qsl
@@ -33,13 +40,15 @@ from urllib.parse import parse_qsl
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from contextlib import asynccontextmanager
 from pydantic import BaseModel
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8753733218:AAEPEinNOsUSUC1wvjJ__s3ahOHKf5OjGCk")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8753733218:AAHgsFAcVK-GXtaQ1FVQJqC3KZRavx3lLD4")
 ADMIN_IDS = {int(x) for x in os.getenv("ADMIN_IDS", os.getenv("OWNER_ID", "7467057651")).split(",") if x.strip().isdigit()}
 
 USERS_FILE = "miniapp_users.json"
 SETTINGS_FILE = "miniapp_settings.json"
+GIFTCODES_FILE = "miniapp_giftcodes.json"
 
 QUICK_AMOUNTS = [50, 100, 250, 500]
 
@@ -149,6 +158,58 @@ def update_points(uid, delta):
     save_users(data)
     return data[uid]["points"]
 
+# ==================== GIFT CODES ====================
+# Admin-issued, single-use (or multi-use with a max-redemptions cap) codes
+# that credit a fixed amount of VIRTUAL points to whoever redeems them.
+# This is the only "top up" mechanism in the whole app — there is no
+# payment gateway and no real money anywhere in this file.
+
+def load_giftcodes():
+    return load_json(GIFTCODES_FILE, {})
+
+def save_giftcodes(data):
+    save_json(GIFTCODES_FILE, data)
+
+def generate_code(length=10):
+    alphabet = string.ascii_uppercase + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+def create_gift_code(amount, max_redemptions=1, created_by=None, note=None):
+    codes = load_giftcodes()
+    code = generate_code()
+    while code in codes:
+        code = generate_code()
+    codes[code] = {
+        "amount": amount,
+        "max_redemptions": max_redemptions,
+        "redeemed_by": [],          # list of uid strings
+        "created_by": created_by,
+        "created_at": datetime.now().isoformat(),
+        "note": note,
+        "active": True,
+    }
+    save_giftcodes(codes)
+    return code, codes[code]
+
+def redeem_gift_code(code, uid):
+    uid = str(uid)
+    codes = load_giftcodes()
+    entry = codes.get(code.strip().upper())
+    real_key = code.strip().upper()
+    if not entry:
+        raise HTTPException(404, "Invalid gift code.")
+    if not entry.get("active", True):
+        raise HTTPException(400, "This gift code has been disabled.")
+    if uid in entry["redeemed_by"]:
+        raise HTTPException(400, "You've already redeemed this code.")
+    if len(entry["redeemed_by"]) >= entry["max_redemptions"]:
+        raise HTTPException(400, "This gift code has reached its redemption limit.")
+    entry["redeemed_by"].append(uid)
+    codes[real_key] = entry
+    save_giftcodes(codes)
+    new_balance = update_points(uid, entry["amount"])
+    return entry["amount"], new_balance
+
 # ==================== TELEGRAM initData VERIFICATION ====================
 
 def verify_init_data(init_data: str):
@@ -200,6 +261,7 @@ class CrashState:
         self.current_multiplier = 1.0
 
 crash_state = CrashState()
+crash_history = []   # list of past crash points, most recent last, capped at 30
 
 def generate_crash_point(min_cap, max_cap):
     """Pure randomness — nobody, including the server operator, can steer an
@@ -224,6 +286,7 @@ def crash_public_state():
         "multiplier": s.current_multiplier,
         "crash_point": s.crash_point if s.phase == "crashed" else None,
         "join_seconds_left": remain,
+        "history": crash_history[-20:],
         "players": [
             {"uid": uid, "name": p["name"], "bet": p["bet"], "cashed_out": p["cashed_out"],
              "cashout_multiplier": p["cashout_multiplier"], "cashout_time": p["cashout_time"],
@@ -282,6 +345,9 @@ async def crash_round_loop():
                 break
 
         s.phase = "crashed"
+        crash_history.append(s.crash_point)
+        if len(crash_history) > 30:
+            del crash_history[: len(crash_history) - 30]
         await asyncio.sleep(4)  # let players see the result before next round
 
 # ==================== TRADING ROUND (shared, global) ====================
@@ -351,12 +417,13 @@ async def trading_round_loop():
 
 # ==================== FASTAPI APP ====================
 
-app = FastAPI()
-
-@app.on_event("startup")
-async def on_startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     asyncio.create_task(crash_round_loop())
     asyncio.create_task(trading_round_loop())
+    yield
+
+app = FastAPI(lifespan=lifespan)
 
 # ---- request models ----
 
@@ -372,6 +439,10 @@ class BetBody(BaseModel):
     initData: str
     side: str
     amount: float
+
+class RedeemBody(BaseModel):
+    initData: str
+    code: str
 
 # ---- crash endpoints ----
 
@@ -451,6 +522,16 @@ async def api_trading_bet(body: BetBody):
     s.bets[uid] = {"name": u["name"], "side": body.side, "amount": body.amount}
     return {"ok": True, "balance": get_user(uid)["points"]}
 
+# ---- gift code endpoint (user-facing) ----
+
+@app.post("/api/redeem")
+async def api_redeem(body: RedeemBody):
+    user = require_user(body.initData)
+    uid = str(user["id"])
+    get_user(uid, user.get("first_name"))  # ensure account exists
+    amount, new_balance = redeem_gift_code(body.code, uid)
+    return {"ok": True, "credited": amount, "balance": new_balance}
+
 # ---- misc ----
 
 @app.get("/api/me")
@@ -486,6 +567,16 @@ class AdminSettingBody(BaseModel):
     path: list[str]     # e.g. ["crash", "growth_rate"]
     value: float | bool
 
+class AdminCreateCodeBody(BaseModel):
+    initData: str
+    amount: float
+    max_redemptions: int = 1
+    note: str | None = None
+
+class AdminDisableCodeBody(BaseModel):
+    initData: str
+    code: str
+
 @app.get("/api/admin/settings")
 async def api_admin_settings(initData: str):
     require_admin(initData)
@@ -509,9 +600,44 @@ async def api_admin_users(initData: str):
     data = load_users()
     return [{"uid": uid, "name": u.get("name", uid), "points": u.get("points", 0)} for uid, u in data.items()]
 
+# ---- admin: gift codes ----
+
+@app.get("/api/admin/giftcodes")
+async def api_admin_giftcodes(initData: str):
+    require_admin(initData)
+    codes = load_giftcodes()
+    return [{"code": code, **entry} for code, entry in sorted(codes.items(), key=lambda kv: kv[1].get("created_at", ""), reverse=True)]
+
+@app.post("/api/admin/giftcodes/create")
+async def api_admin_create_giftcode(body: AdminCreateCodeBody):
+    admin = require_admin(body.initData)
+    if body.amount <= 0:
+        raise HTTPException(400, "Amount must be positive.")
+    if body.max_redemptions <= 0:
+        raise HTTPException(400, "max_redemptions must be at least 1.")
+    code, entry = create_gift_code(
+        amount=body.amount,
+        max_redemptions=body.max_redemptions,
+        created_by=str(admin["id"]),
+        note=body.note,
+    )
+    return {"ok": True, "code": code, "entry": entry}
+
+@app.post("/api/admin/giftcodes/disable")
+async def api_admin_disable_giftcode(body: AdminDisableCodeBody):
+    require_admin(body.initData)
+    codes = load_giftcodes()
+    key = body.code.strip().upper()
+    if key not in codes:
+        raise HTTPException(404, "Code not found.")
+    codes[key]["active"] = False
+    save_giftcodes(codes)
+    return {"ok": True}
+
 # ---- static frontend ----
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+os.makedirs(STATIC_DIR, exist_ok=True)
 
 @app.get("/")
 async def root():
